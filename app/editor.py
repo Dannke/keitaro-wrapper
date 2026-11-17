@@ -56,6 +56,8 @@ def serialize(campaign: Campaign) -> dict:
                         "state": o.state,
                         "pinned": o.pinned,
                         "published": o.pub_state is not None,
+                        "pub_share": o.pub_share,  # для «было → стало» и сводки Push
+                        "pub_state": o.pub_state,
                     }
                     for o in s.offers
                 ],

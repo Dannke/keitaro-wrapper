@@ -120,4 +120,7 @@ def test_offer_search_and_index_page(client):
     respx.get(f"{BASE}offers").respond(json=OFFERS)
     assert client.get("/api/offers?q=mix").json() == [{"id": 25327, "name": "Mixflow AU"}]
     assert client.get("/api/offers?q=1995").json() == [{"id": 19958, "name": "Other"}]
-    assert "New campaign" in client.get("/").text
+    page = client.get("/").text
+    assert "New campaign" in page
+    assert '"GB"' in page and '"UK"' not in page  # клиент проверяет Geo по тому же списку, что бэкенд
+    assert client.get("/static/app.css").status_code == 200

@@ -1,95 +1,107 @@
-<!doctype html>
-<html lang="ru">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>New campaign · Keitaro wrapper</title>
-  <style>
-    body { font: 15px/1.4 system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 0 16px; color: #222; }
-    form { display: grid; grid-template-columns: 80px 1fr; gap: 10px 12px; align-items: center; }
-    input { padding: 6px 8px; font: inherit; border: 1px solid #bbb; border-radius: 4px; }
-    button { grid-column: 1 / -1; padding: 8px; font: inherit; background: #cfe0f7; border: 1px solid #8fb3e6; border-radius: 4px; cursor: pointer; }
-    button:disabled { opacity: .6; cursor: wait; }
-    .hint { grid-column: 2; margin-top: -6px; font-size: 13px; color: #666; }
-    #result { margin-top: 16px; white-space: pre-wrap; }
-    .ok { color: #1a7f37; } .err { color: #c0392b; }
-    table { border-collapse: collapse; width: 100%; margin-top: 8px; }
-    td, th { text-align: left; padding: 4px 8px; border-bottom: 1px solid #eee; }
-  </style>
-</head>
-<body>
-  <h1>New campaign</h1>
-  <form id="form">
-    <label for="name">Name</label>
-    <input id="name" required placeholder="campaign1">
-    <div class="hint">Префикс <code>{{ prefix }}</code> добавится сам</div>
+{% extends "base.html" %}
+{% set nav = "new" %}
+{% block title %}New campaign · Keitaro wrapper{% endblock %}
 
-    <label for="geo">Geo</label>
-    <input id="geo" required placeholder="MX,AU,RO">
+{% block content %}
+<div class="create-layout">
+  <section class="create-col" aria-labelledby="create-title">
+    <div class="card form-card">
+      <div class="form-head">
+        <h1 id="create-title">New campaign</h1>
+        <p class="small secondary">Кампания с двумя потоками: Geo → google.com, остальной трафик → оффер</p>
+      </div>
 
-    <label for="offer">Offer</label>
-    <input id="offer" required list="offers" placeholder="поиск по id или названию" autocomplete="off">
-    <datalist id="offers"></datalist>
+      <form id="create" class="form" novalidate>
+        <div class="field">
+          <label for="name">Name</label>
+          <input class="input" id="name" name="name" autocomplete="off" spellcheck="false" placeholder="campaign1"
+                 aria-describedby="name-hint">
+          <div class="hint" id="name-hint"><span class="mono name-preview"><span class="muted">{{ prefix }}</span><span id="name-preview-value" class="placeholder">name</span></span></div>
+        </div>
 
-    <button id="submit">Create</button>
-  </form>
-  <div id="result" role="status"></div>
+        <div class="field">
+          <label for="geo-input" id="geo-label">Geo</label>
+          <div class="chips-input" id="geo-box">
+            <input id="geo-input" autocomplete="off" spellcheck="false" placeholder="MX, AU, RO"
+                   aria-describedby="geo-hint" aria-labelledby="geo-label">
+          </div>
+          <div class="hint" id="geo-hint">Коды стран ISO 3166-1, через запятую, пробел или Enter</div>
+        </div>
 
-  <h2>Редактор кампании</h2>
-  <form id="open" style="grid-template-columns: 1fr auto">
-    <input id="open-id" type="number" min="1" required placeholder="ID кампании в Keitaro" aria-label="ID кампании">
-    <button style="grid-column: auto">Открыть</button>
-  </form>
+        <div class="field">
+          <label for="offer">Offer</label>
+          <div class="combo" id="offer-combo">
+            <input class="input" id="offer" placeholder="Поиск по id или названию" aria-describedby="offer-hint">
+          </div>
+          <div class="offer-picked" id="offer-picked" hidden>
+            <div class="offer-picked-body">
+              <span class="mono" id="offer-picked-id"></span>
+              <span class="offer-picked-name" id="offer-picked-name"></span>
+            </div>
+            <button class="btn btn-sm btn-ghost" type="button" id="offer-change">сменить</button>
+          </div>
+          <div class="hint" id="offer-hint">Ищет по офферам Keitaro</div>
+        </div>
 
-  <h2>Кампании в базе</h2>
-  <table>
-    <tr><th>ID</th><th>Название</th><th>Geo</th></tr>
-    {% for c in campaigns %}
-    <tr><td>{{ c.id }}</td><td><a href="/campaigns/{{ c.id }}">{{ c.name }}</a></td><td>{{ c.geo or "" }}</td></tr>
-    {% else %}
-    <tr><td colspan="3">Пока нет</td></tr>
-    {% endfor %}
-  </table>
+        <div class="notice notice-danger" id="create-error" role="alert" hidden>
+          <span data-icon="alert"></span><div class="notice-body"></div>
+        </div>
 
-<script>
-const $ = (id) => document.getElementById(id);
-// parseInt ниже берёт id из начала метки. Имя оставляем как есть, только если его ведущее число и есть id:
-// у оффера 12 «123 Mixflow» простой startsWith дал бы 123
-const label = (o) => (/^\d+/.exec(o.name)?.[0] === String(o.id) ? o.name : `${o.id} ${o.name}`);
-$("open").addEventListener("submit", (e) => { e.preventDefault(); location.href = "/campaigns/" + $("open-id").value; });
-let timer;
-$("offer").addEventListener("input", () => {
-  clearTimeout(timer);
-  timer = setTimeout(async () => {
-    const r = await fetch("/api/offers?q=" + encodeURIComponent($("offer").value));
-    if (!r.ok) return;
-    $("offers").replaceChildren(...(await r.json()).map((o) => new Option(label(o), label(o))));
-  }, 250);
-});
+        <div class="form-submit">
+          <button class="btn btn-primary btn-lg" id="submit" type="submit" aria-describedby="submit-hint">
+            <span class="btn-label">Create</span>
+          </button>
+          <div class="hint" id="submit-hint"></div>
+        </div>
+      </form>
 
-$("form").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const offerId = parseInt($("offer").value, 10);
-  const out = $("result");
-  if (!offerId) { out.className = "err"; out.textContent = "Выберите оффер из списка"; return; }
-  $("submit").disabled = true;
-  out.className = ""; out.textContent = "Создаю…";
-  try {
-    const r = await fetch("/api/campaigns", {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({name: $("name").value, geo: $("geo").value, offer_id: offerId}),
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
-    out.className = "ok";
-    out.textContent = `Создана кампания ${data.name} (id ${data.id}, alias ${data.alias}), оффер ${label(data.offer)}`;
-    setTimeout(() => location.reload(), 1500);
-  } catch (err) {
-    out.className = "err"; out.textContent = "Ошибка: " + err.message;
-  } finally {
-    $("submit").disabled = false;
-  }
-});
-</script>
-</body>
-</html>
+      <div class="result" id="result" role="status" tabindex="-1" hidden></div>
+    </div>
+
+    <form class="card open-card" id="open" novalidate>
+      <label class="label" for="open-id">Открыть по id</label>
+      <div class="inline">
+        <input class="input mono" id="open-id" inputmode="numeric" pattern="[0-9]*" autocomplete="off"
+               placeholder="id кампании в Keitaro" aria-describedby="open-hint">
+        <button class="btn btn-secondary" type="submit">Открыть</button>
+      </div>
+      <div class="hint" id="open-hint">Чужие кампании открываются только на просмотр</div>
+    </form>
+  </section>
+
+  <section class="list-col" id="campaigns" aria-labelledby="campaigns-title">
+    <div class="list-head">
+      <h2 id="campaigns-title">Кампании</h2>
+      <span class="small muted num" id="campaigns-count">{{ campaigns|length }}</span>
+    </div>
+    <div class="card">
+      <ul class="camp-list" id="camp-list"{% if not campaigns %} hidden{% endif %}>
+        {% for c in campaigns %}
+        <li>
+          <a class="camp-row" href="/campaigns/{{ c.id }}">
+            <span class="mono camp-id">{{ c.id }}</span>
+            <span class="camp-main">
+              <span class="camp-name">{{ c.name }}</span>
+              {% if c.geo %}<span class="chips">{% for g in c.geo.split(",") %}<span class="chip chip-static" data-country="{{ g }}"><span class="mono">{{ g }}</span></span>{% endfor %}</span>{% endif %}
+            </span>
+            <span class="camp-meta">
+              {% if not c.name.startswith(prefix) %}<span class="badge badge-readonly">Только просмотр</span>{% endif %}
+              <time class="small muted num" datetime="{{ c.created_at.isoformat() }}Z">{{ c.created_at.strftime("%d.%m.%Y") }}</time>
+            </span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="empty" id="camp-empty"{% if campaigns %} hidden{% endif %}>
+        <h3>Кампаний пока нет</h3>
+        <p>Сюда попадают кампании, созданные в этой форме, и чужие кампании, загруженные в редакторе через Fetch streams from KT.</p>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script id="page-data" type="application/json">{{ {"countries": countries, "prefix": prefix, "ktCampaignUrl": kt_campaign_url}|tojson }}</script>
+<script src="/static/create.js" defer></script>
+{% endblock %}

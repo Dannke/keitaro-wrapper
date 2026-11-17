@@ -86,6 +86,13 @@ def test_video_scenario(client):
     c = client.post(f"/api/streams/{SID}/offers", json={"offer_id": 4}).json()
     stream, offers = offers_of(c)
     assert [s for _, s, _ in offers] == [25, 25, 25, 25] and stream["dirty"] and not put.called
+    # UI показывает «было → стало»: у опубликованных прежняя доля, у нового pub_state None
+    assert [(o["pub_share"], o["pub_state"]) for o in stream["offers"]] == [
+        (33, "active"),
+        (33, "active"),
+        (34, "active"),
+        (0, None),
+    ]
 
     # Cancel: добавленный до публикации оффер удалился, доли вернулись
     c = client.post(f"/api/streams/{SID}/cancel").json()

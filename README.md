@@ -12,7 +12,7 @@
    - Удалённые офферы попадают в архив с кнопкой Bring back.
    - Доли можно закреплять (Pin), остальные пересчитываются, сумма всегда 100%.
 
-![Редактор: закреплённая доля 50%, поток не опубликован](docs/editor.jpg)
+![Редактор на демо-данных: два оффера закреплены, поток не опубликован, у изменённых долей видно «было → стало»](docs/editor.jpg)
 
 ## Быстрый старт
 
@@ -146,7 +146,9 @@ app/
   services.py     # создаватор кампаний
   editor.py       # редактор: rebalance, fetch, add/remove/restore/pin, push, cancel
   routers/api.py  # JSON API
-  templates/      # index.html (vanilla JS), editor.html (jQuery)
+  templates/      # base.html (шапка, шрифты), index.html, editor.html
+  static/         # app.css (токены), app.js (api(), тосты, диалог, комбобокс), create.js, editor.js,
+                  # fonts/ (IBM Plex, OFL): фронт без сборщика и без внешних запросов
 alembic/          # миграции
 scripts/recon.py  # разведка справочников Keitaro (только GET)
 tests/
