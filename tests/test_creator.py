@@ -1,4 +1,5 @@
 import json
+import re
 
 import pytest
 import respx
@@ -123,4 +124,5 @@ def test_offer_search_and_index_page(client):
     page = client.get("/").text
     assert "New campaign" in page
     assert '"GB"' in page and '"UK"' not in page  # клиент проверяет Geo по тому же списку, что бэкенд
-    assert client.get("/static/app.css").status_code == 200
+    css = re.search(r'href="(/static/app\.css\?v=\d+)"', page)  # версия в URL сбрасывает кэш браузера
+    assert css and client.get(css[1]).status_code == 200

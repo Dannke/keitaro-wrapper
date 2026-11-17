@@ -4,6 +4,7 @@
 {% block content %}
 <div class="ed-head">
   <div class="ed-title">
+    <a class="btn btn-ghost icon-btn ed-back" href="/#campaigns" aria-label="К списку кампаний" title="К списку кампаний"><span data-icon="back"></span></a>
     <h1 id="title">Кампания {{ campaign_id }}</h1>
     <div class="ed-meta">
       <span class="small muted">id</span>
@@ -50,5 +51,5 @@
 
 {% block scripts %}
 <script id="page-data" type="application/json">{{ {"campaignId": campaign_id}|tojson }}</script>
-<script src="/static/editor.js" defer></script>
+<script src="{{ asset('editor.js') }}" defer></script>
 {% endblock %}

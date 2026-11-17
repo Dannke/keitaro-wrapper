@@ -19,10 +19,19 @@ app = FastAPI(title="Keitaro wrapper")
 app.include_router(api.router)
 # Без проверки Host сравнение Origin с Host обходится через DNS rebinding (evil.com → 127.0.0.1)
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
-app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+STATIC = Path(__file__).parent / "static"
+app.mount("/static", StaticFiles(directory=STATIC), name="static")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+
+
+def asset(path: str) -> str:
+    """URL статики с mtime: после правки файла браузер не берёт старую версию из кэша."""
+    return f"/static/{path}?v={int((STATIC / path).stat().st_mtime)}"
+
+
 # чип в шапке напоминает, что действия уходят в общий боевой трекер; адрес только из .env
 templates.env.globals.update(
+    asset=asset,
     prefix=settings.name_prefix,
     tracker_host=urlsplit(settings.keitaro_url).netloc,
     kt_campaign_url=settings.keitaro_url.rstrip("/") + "/admin/#!/campaign/{id}/main",

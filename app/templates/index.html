@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% set nav = "new" %}
 {% block title %}New campaign · Keitaro wrapper{% endblock %}
 
 {% block content %}
@@ -103,5 +102,5 @@
 
 {% block scripts %}
 <script id="page-data" type="application/json">{{ {"countries": countries, "prefix": prefix, "ktCampaignUrl": kt_campaign_url}|tojson }}</script>
-<script src="/static/create.js" defer></script>
+<script src="{{ asset('create.js') }}" defer></script>
 {% endblock %}

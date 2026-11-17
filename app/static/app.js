@@ -33,6 +33,7 @@ const ICONS = {
   copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   arrow: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  back: '<path d="M19 12H5"/><path d="m12 19-7-7 7-7"/>',
 };
 
 function icon(name) {

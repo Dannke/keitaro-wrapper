@@ -81,14 +81,6 @@ code, .mono { font-family: var(--mono); font-size: .93em; }
 .brand { display: flex; align-items: center; gap: 8px; color: var(--text); font-weight: 600; text-decoration: none; }
 .brand:hover { color: var(--text); }
 .brand svg { width: 20px; height: 20px; }
-.nav { display: flex; gap: 4px; }
-.nav a {
-  display: inline-flex; align-items: center; min-height: var(--tap); padding: 0 8px;
-  border-radius: var(--r-control); color: var(--text-2); text-decoration: none;
-  transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease);
-}
-.nav a:hover { background: var(--surface-2); color: var(--text); }
-.nav a[aria-current="page"] { color: var(--text); background: var(--surface-2); }
 .tracker {
   margin-left: auto; display: inline-flex; align-items: center; gap: 8px;
   padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--r-control);
@@ -367,7 +359,10 @@ dialog::backdrop { background: rgb(21 24 30 / .32); }
 
 /* ---------- Редактор ---------- */
 .ed-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
-.ed-title { display: grid; gap: 4px; min-width: 0; }
+.ed-title { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; row-gap: 4px; align-items: center; min-width: 0; }
+.ed-title > :not(.ed-back) { grid-column: 2; }
+/* стрелка «назад» стоит слева от заголовка, а сам заголовок по левому краю совпадает со строкой id */
+.ed-back { grid-row: 1; margin-left: -8px; color: var(--text-2); }
 .ed-title h1 { font-size: 20px; overflow-wrap: anywhere; }
 .ed-meta { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
 .ed-meta .badge { margin-left: 8px; }
@@ -470,5 +465,4 @@ dialog::backdrop { background: rgb(21 24 30 / .32); }
 .push-summary > div, .summary { min-width: 0; }
 .summary { grid-template-columns: minmax(0, 1fr); }
 .summary .share { flex: none; }
-.nav a { white-space: nowrap; }
-@media (max-width: 420px) { .nav a { padding: 0 6px; } .topbar { gap: 8px; } .tracker .mono { max-width: 10ch; } }
+@media (max-width: 420px) { .topbar { gap: 8px; } .tracker .mono { max-width: 10ch; } }
