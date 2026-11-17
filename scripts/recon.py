@@ -8,6 +8,8 @@ import json
 import sys
 from pathlib import Path
 
+from fastapi import HTTPException
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app import keitaro  # noqa: E402
 
@@ -28,6 +30,11 @@ def dump(name: str, path: str, **params):
     (OUT / f"{name}.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     return data
 
+
+try:
+    keitaro.get("/domains")
+except HTTPException as e:
+    sys.exit(f"Ошибка: {e.detail}")
 
 OUT.mkdir(parents=True, exist_ok=True)
 for name in ("stream_types", "stream_schemas", "streams_actions", "stream_filters", "offers", "campaigns"):
