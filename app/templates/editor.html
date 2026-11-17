@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Campaign {{ campaign_id }} · Keitaro wrapper</title>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+          integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+  <style>
+    body { font: 15px/1.4 system-ui, sans-serif; max-width: 960px; margin: 24px auto; padding: 0 16px; color: #222; }
+    a { color: #1f5fbf; }
+    button { font: inherit; padding: 4px 10px; border: 1px solid #aaa; border-radius: 4px; background: #f6f6f6; cursor: pointer; }
+    button.primary { background: #cfe0f7; border-color: #8fb3e6; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+    .stream { border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; margin: 12px 0; }
+    .stream.dirty { background: #fff8d6; border-color: #e6c84a; }
+    .stream h3 { margin: 0 0 6px; font-size: 16px; }
+    .badge { font-size: 12px; padding: 1px 6px; border-radius: 10px; background: #e6c84a; margin-left: 6px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #eee; }
+    td.num, th.num { text-align: right; width: 70px; }
+    tr.removed td { color: #999; }
+    .bad { color: #c0392b; font-weight: 600; }
+    .add { display: flex; gap: 8px; margin-top: 8px; }
+    .add input { flex: 1; padding: 4px 8px; font: inherit; }
+    #msg { min-height: 1.4em; }
+    .err { color: #c0392b; } .muted { color: #777; }
+  </style>
+</head>
+<body>
+  <p><a href="/">← New campaign</a></p>
+  <h1 id="title">Campaign {{ campaign_id }}</h1>
+  <div class="toolbar">
+    <button class="primary" id="fetch">Fetch streams from KT</button>
+    <a id="kt" target="_blank" rel="noopener" hidden>View in KT ↗</a>
+    <span id="msg" role="status"></span>
+  </div>
+  <p id="readonly" class="muted" hidden>Кампания без префикса {{ prefix }}: только просмотр, Push запрещён.</p>
+  <div id="streams"></div>
+  <datalist id="offer-list"></datalist>
+
+<script>
+const CID = {{ campaign_id }};
+let editable = false;
+
+function api(method, url, body) {
+  $("#msg").removeClass("err").text("…");
+  return $.ajax({method, url, contentType: "application/json", data: body ? JSON.stringify(body) : undefined})
+    .done((c) => { $("#msg").text(""); render(c); })
+    .fail((x) => $("#msg").addClass("err").text(x.responseJSON?.detail ?? x.statusText));
+}
+
+function render(c) {
+  editable = c.editable;
+  $("#title").text(`${c.name} (id ${c.id})`);
+  $("#kt").attr("href", c.keitaro_url).prop("hidden", false);
+  $("#readonly").prop("hidden", c.editable);
+  $("#streams").empty().append(c.streams.map(renderStream));
+}
+
+function renderStream(s) {
+  const $s = $('<div class="stream">').toggleClass("dirty", s.dirty);
+  $s.append($("<h3>").text(`#${s.position} ${s.name}`).append(s.dirty ? '<span class="badge">не опубликован</span>' : ""));
+  if (!s.has_offers) return $s.append('<div class="muted">Поток без офферов</div>');
+
+  const $t = $("<table>").append("<tr><th>Offer</th><th class='num'>Share</th><th>State</th><th>Pin</th><th>Actions</th></tr>");
+  for (const o of s.offers) {
+    const $tr = $("<tr>").toggleClass("removed", o.state === "removed");
+    $tr.append($("<td>").text(o.name));
+    $tr.append($('<td class="num">').text(o.share + "%"));
+    $tr.append($("<td>").text(o.state + (o.published ? "" : " (new)")));
+    $tr.append($("<td>").append(
+      $('<input type="checkbox">').prop({checked: o.pinned, disabled: o.state !== "active"}).attr("aria-label", "Pin " + o.name)
+        .on("change", (e) => api("POST", `/api/stream_offers/${o.id}/pin`, {pinned: e.target.checked}))));
+    $tr.append($("<td>").append(o.state === "active"
+      ? $("<button>Remove</button>").on("click", () => api("POST", `/api/stream_offers/${o.id}/remove`))
+      : $("<button>Bring back</button>").on("click", () => api("POST", `/api/stream_offers/${o.id}/restore`))));
+    $t.append($tr);
+  }
+  $t.append($("<tr>").append("<td>Итого</td>", $('<td class="num">').text(s.total + "%").toggleClass("bad", s.total !== 100 && s.offers.some((o) => o.state === "active")), "<td colspan=3></td>"));
+  $s.append($t);
+
+  const $input = $('<input list="offer-list" placeholder="id или название оффера" autocomplete="off">').attr("aria-label", "Новый оффер");
+  $input.on("input", () => searchOffers($input.val()));
+  $s.append($('<div class="add">').append(
+    $input,
+    $("<button>Add offer</button>").on("click", () => {
+      const id = parseInt($input.val(), 10);
+      if (!id) return $("#msg").addClass("err").text("Выберите оффер из списка");
+      api("POST", `/api/streams/${s.id}/offers`, {offer_id: id});
+    }),
+    $('<button class="primary">Push</button>').prop("disabled", !s.dirty || !editable)
+      .on("click", () => api("POST", `/api/streams/${s.id}/push`)),
+    $("<button>Cancel</button>").prop("disabled", !s.dirty).on("click", () => api("POST", `/api/streams/${s.id}/cancel`)),
+  ));
+  return $s;
+}
+
+let timer;
+function searchOffers(q) {
+  clearTimeout(timer);
+  timer = setTimeout(() => $.getJSON("/api/offers", {q}, (list) => {
+    const label = (o) => (o.name.startsWith(String(o.id)) ? o.name : `${o.id} ${o.name}`);
+    $("#offer-list").empty().append(list.map((o) => new Option(label(o), label(o))));
+  }), 250);
+}
+
+$("#fetch").on("click", () => api("POST", `/api/campaigns/${CID}/fetch`));
+$.getJSON(`/api/campaigns/${CID}`).done(render).fail(() => $("#msg").text("Нажмите Fetch streams from KT, чтобы загрузить потоки"));
+</script>
+</body>
+</html>

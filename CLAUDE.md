@@ -49,10 +49,13 @@ ruff check . && ruff format .
 
 - Всё синхронно: `httpx.Client` в `app/keitaro.py` и `def`-эндпоинты (FastAPI сам гоняет их в threadpool).
   Ошибки Keitaro клиент уже превращает в `HTTPException(502)`, в роутерах их не ловить.
-- Бизнес-логика собрана в чистых функциях `app/services.py` (`build_campaign_payload`, `build_streams`, `rebalance`),
-  на них написаны unit-тесты. HTTP-код лежит в `app/keitaro.py`, роутеры тонкие.
+- Логика создаватора лежит в `app/services.py` (`campaign_payload`, `stream_payloads`, `create_campaign`),
+  логика редактора — в `app/editor.py` (`rebalance`, `fetch`, add/remove/restore/pin, `push`, `cancel`).
+  HTTP-код лежит в `app/keitaro.py`, роутеры тонкие. Каждая операция редактора возвращает кампанию целиком (`serialize`).
 - `rebalance`: доли целые; закреплённые (pinned) не трогаем; `100 − Σ pinned` делим поровну между активными
-  незакреплёнными, остаток уходит последнему (3 оффера: 33/33/34); у `removed` доля 0.
+  незакреплёнными, остаток раздаём по 1% последним (3 оффера: 33/33/34); у `removed` доля 0. Pin сам доли не пересчитывает.
+- `PUT /streams/{id}` с `offers` заменяет весь список, поэтому Push отправляет все активные офферы потока.
+- Middleware `same_origin_only` в `app/main.py` отклоняет POST с чужим Origin. Не убирать: авторизации нет.
 - Черновик и публикация: в `stream_offers` есть текущие поля (`share`, `state`) и опубликованные (`pub_share`, `pub_state`).
   Keitaro меняет только Push. Fetch, Push и Cancel переписывают `pub_*` или текущие поля целиком, без частичных обновлений.
 - Ошибки Keitaro отдаются клиенту как HTTP 502 с текстом ответа Keitaro, без проглатывания.

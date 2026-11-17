@@ -27,6 +27,8 @@ class Stream(Base):
     campaign_id: Mapped[int] = mapped_column(ForeignKey("campaigns.id", ondelete="CASCADE"))
     name: Mapped[str]
     position: Mapped[int]
+    # landings — поток с офферами (редактируем); остальные только показываем по имени, как в эталоне
+    schema: Mapped[str] = mapped_column(server_default="landings")
 
     campaign: Mapped[Campaign] = relationship(back_populates="streams")
     offers: Mapped[list["StreamOffer"]] = relationship(

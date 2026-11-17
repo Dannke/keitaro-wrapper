@@ -63,7 +63,8 @@ Payload потоков (сверено 2026-11-17 с потоками сущес
 - У потоков с офферами `action_payload: ""`. Доли бывают неравными (75/25): это закреплённые доли (pin), см. «Логика редактора».
 - Эталонной кампании со скриншота ТЗ на keitaro.example.com нет: скриншот сделан на другом трекере.
 - Значения по умолчанию на этом трекере: домен `1` (`example.com`, единственный), группа `2` (`FORTESTS`), источник `3` (`FORTESTS`, единственный). Новые не создаём.
-- **Не выяснено:** заменяет ли `PUT /streams/{id}` с `offers` весь список. Это проверяется только записью, поэтому на этапе 4 на своей кампании `test_Zaitsev_*`.
+- `PUT /streams/{id}` с `offers` **заменяет весь список офферов**, остальные поля потока не трогает (проверено на своём потоке 1313154).
+- Ссылка на кампанию в админке: `https://keitaro.example.com/admin/#!/campaign/{id}/main`.
 
 ## Открытые вопросы (решить до кода)
 
@@ -105,7 +106,10 @@ Payload потоков (сверено 2026-11-17 с потоками сущес
 Свои допущения (в видео не показано):
 - Remove снимает pin.
 - Push запрещён, если сумма активных долей не равна 100. Такое бывает, если все офферы закреплены.
-- Pin не делает поток жёлтым.
+- Pin не делает поток жёлтым и сам доли не пересчитывает: пересчёт идёт при следующих операциях.
+- Остаток от деления раздаётся по 1% последним офферам (7 офферов → 14×5, 15, 15), а не целиком последнему.
+- Push запрещён для кампаний без префикса `test_Zaitsev_`: страница открывается только на просмотр.
+- POST-запросы с чужим `Origin` отклоняются (защита от CSRF: авторизации нет, а Push пишет в общий Keitaro).
 
 ## Этапы
 
@@ -113,9 +117,9 @@ Payload потоков (сверено 2026-11-17 с потоками сущес
 |---|------|-----------|----------|
 | 0 ✅ | Каркас | `requirements.txt`, `app/`, `.env.example`, `.gitignore`, `git init` | `/health` отвечает |
 | 1 ✅ | Клиент Keitaro и разведка | `app/keitaro.py` (sync `httpx.Client`, ошибки → 502), `scripts/recon.py`, справочники в `tests/fixtures/` | 3 теста, разведка на keitaro.example.com |
-| 2 | БД + миграции | Таблицы `campaigns` (id из Keitaro, name, alias, geo, created_at), `streams` (id из Keitaro, campaign_id, name, position), `offers` (справочник: id из Keitaro, name, updated_at; пополняется при создании, Fetch и Add offer, это не кэш поиска: поиск всегда идёт в Keitaro), `stream_offers` (stream_id, offer_id → offers, share, state, pinned, pub_state, pub_share; уникальная пара stream+offer). Alembic, SQLite по умолчанию (`DATABASE_URL`) | `alembic upgrade head` на чистой базе |
-| 3 | Создаватор | `POST /api/campaigns`: валидация (имя, ISO-коды стран, offer_id существует), затем создание кампании, потока 1 и потока 2. Если поток не создался, удалить созданную кампанию, чтобы не оставлять мусор в Keitaro. Страница `/` с формой; автокомплит офферов через `<datalist>` из `GET /api/offers` | тест на сборку payload (respx), ручная проверка в админке |
-| 4 | Редактор | Эндпоинты `POST /api/campaigns/{id}/fetch`, `GET /api/campaigns/{id}`, `POST /api/streams/{id}/offers`, `POST /api/stream_offers/{id}/remove`, `/restore`, `/pin`, `POST /api/streams/{id}/push`, `/cancel`. Чистая функция `rebalance` с учётом pin. Страница `/campaigns/{id}`. Сначала одним Push на своей кампании проверить, что `PUT /streams/{id}` заменяет список офферов | unit-тесты `rebalance` (1, 3, 4 оффера; pin; все закреплены) и сценарий из видео на моках, ручная сверка с админкой |
+| 2 ✅ | БД + миграции | Таблицы `campaigns` (id из Keitaro, name, alias, geo, created_at), `streams` (id из Keitaro, campaign_id, name, position), `offers` (справочник: id из Keitaro, name, updated_at; пополняется при создании, Fetch и Add offer, это не кэш поиска: поиск всегда идёт в Keitaro), `stream_offers` (stream_id, offer_id → offers, share, state, pinned, pub_state, pub_share; уникальная пара stream+offer). Alembic, SQLite по умолчанию (`DATABASE_URL`) | `alembic upgrade head` на чистой базе |
+| 3 ✅ | Создаватор | `POST /api/campaigns`: валидация (имя, ISO-коды стран, offer_id существует), затем создание кампании, потока 1 и потока 2. Если поток не создался, удалить созданную кампанию, чтобы не оставлять мусор в Keitaro. Страница `/` с формой; автокомплит офферов через `<datalist>` из `GET /api/offers` | тест на сборку payload (respx), ручная проверка в админке |
+| 4 ✅ | Редактор | Эндпоинты `POST /api/campaigns/{id}/fetch`, `GET /api/campaigns/{id}`, `POST /api/streams/{id}/offers`, `POST /api/stream_offers/{id}/remove`, `/restore`, `/pin`, `POST /api/streams/{id}/push`, `/cancel`. Чистая функция `rebalance` с учётом pin. Страница `/campaigns/{id}`. Сначала одним Push на своей кампании проверить, что `PUT /streams/{id}` заменяет список офферов | unit-тесты `rebalance` (1, 3, 4 оффера; pin; все закреплены) и сценарий из видео на моках, ручная сверка с админкой |
 | 5 | README и сдача | README: требования, `.env`, миграции, запуск, тесты, скриншоты. Пуш на GitHub | проверка с нуля по README в чистой папке |
 
 ## Структура
