@@ -144,4 +144,10 @@ def test_push_refused_when_pins_break_total(client):
 def test_cross_site_post_rejected(client):
     r = client.post(f"/api/streams/{SID}/push", headers={"Origin": "https://evil.example"})
     assert r.status_code == 403
-    assert client.post(f"/api/streams/{SID}/push", headers={"Origin": "http://testserver"}).status_code == 404
+    assert client.post(f"/api/streams/{SID}/push", headers={"Origin": "http://localhost"}).status_code == 404
+
+
+def test_dns_rebinding_host_rejected(client):
+    # evil.example указывает на 127.0.0.1: Origin совпадает с Host, но Host не в allowed_hosts
+    r = client.post(f"/api/streams/{SID}/push", headers={"Host": "evil.example", "Origin": "http://evil.example"})
+    assert r.status_code == 400

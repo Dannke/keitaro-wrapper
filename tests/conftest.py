@@ -20,5 +20,5 @@ def db():
 @pytest.fixture
 def client(db):
     app.dependency_overrides[get_db] = lambda: db
-    yield TestClient(app)
+    yield TestClient(app, base_url="http://localhost")  # localhost есть в allowed_hosts
     app.dependency_overrides.clear()

@@ -2,6 +2,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, Request
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
@@ -14,6 +15,8 @@ from app.routers import api
 
 app = FastAPI(title="Keitaro wrapper")
 app.include_router(api.router)
+# Без проверки Host сравнение Origin с Host обходится через DNS rebinding (evil.com → 127.0.0.1)
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 
 
