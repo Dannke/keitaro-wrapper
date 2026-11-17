@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>New campaign · Keitaro wrapper</title>
+  <style>
+    body { font: 15px/1.4 system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 0 16px; color: #222; }
+    form { display: grid; grid-template-columns: 80px 1fr; gap: 10px 12px; align-items: center; }
+    input { padding: 6px 8px; font: inherit; border: 1px solid #bbb; border-radius: 4px; }
+    button { grid-column: 1 / -1; padding: 8px; font: inherit; background: #cfe0f7; border: 1px solid #8fb3e6; border-radius: 4px; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    .hint { grid-column: 2; margin-top: -6px; font-size: 13px; color: #666; }
+    #result { margin-top: 16px; white-space: pre-wrap; }
+    .ok { color: #1a7f37; } .err { color: #c0392b; }
+    table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+    td, th { text-align: left; padding: 4px 8px; border-bottom: 1px solid #eee; }
+  </style>
+</head>
+<body>
+  <h1>New campaign</h1>
+  <form id="form">
+    <label for="name">Name</label>
+    <input id="name" required placeholder="campaign1">
+    <div class="hint">Префикс <code>{{ prefix }}</code> добавится сам</div>
+
+    <label for="geo">Geo</label>
+    <input id="geo" required placeholder="MX,AU,RO">
+
+    <label for="offer">Offer</label>
+    <input id="offer" required list="offers" placeholder="поиск по id или названию" autocomplete="off">
+    <datalist id="offers"></datalist>
+
+    <button id="submit">Create</button>
+  </form>
+  <div id="result" role="status"></div>
+
+  <h2>Мои кампании</h2>
+  <table>
+    <tr><th>ID</th><th>Название</th><th>Geo</th></tr>
+    {% for c in campaigns %}
+    <tr><td>{{ c.id }}</td><td>{{ c.name }}</td><td>{{ c.geo or "" }}</td></tr>
+    {% else %}
+    <tr><td colspan="3">Пока нет</td></tr>
+    {% endfor %}
+  </table>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let timer;
+$("offer").addEventListener("input", () => {
+  clearTimeout(timer);
+  timer = setTimeout(async () => {
+    const r = await fetch("/api/offers?q=" + encodeURIComponent($("offer").value));
+    if (!r.ok) return;
+    // имена офферов в Keitaro обычно уже начинаются с id; parseInt ниже берёт id из начала строки
+    const label = (o) => (o.name.startsWith(String(o.id)) ? o.name : `${o.id} ${o.name}`);
+    $("offers").replaceChildren(...(await r.json()).map((o) => new Option(label(o), label(o))));
+  }, 250);
+});
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const offerId = parseInt($("offer").value, 10);
+  const out = $("result");
+  if (!offerId) { out.className = "err"; out.textContent = "Выберите оффер из списка"; return; }
+  $("submit").disabled = true;
+  out.className = ""; out.textContent = "Создаю…";
+  try {
+    const r = await fetch("/api/campaigns", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({name: $("name").value, geo: $("geo").value, offer_id: offerId}),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
+    out.className = "ok"; out.textContent = `Создана кампания ${data.name} (id ${data.id}, alias ${data.alias})`;
+    setTimeout(() => location.reload(), 1500);
+  } catch (err) {
+    out.className = "err"; out.textContent = "Ошибка: " + err.message;
+  } finally {
+    $("submit").disabled = false;
+  }
+});
+</script>
+</body>
+</html>
