@@ -17,7 +17,13 @@ const fetchBtn = $("#fetch");
 async function load() {
   $("#load-error").hidden = true;
   try {
-    render(await api("GET", `/api/campaigns/${CID}`));
+    const c = await api("GET", `/api/campaigns/${CID}`);
+    render(c);
+    // Create сохраняет кампанию без потоков: в Keitaro они есть, просто ещё не загружены через Fetch
+    if (!c.streams.length) {
+      streamsEl.replaceChildren();
+      $("#empty").hidden = false;
+    }
   } catch (e) {
     streamsEl.replaceChildren();
     streamsEl.removeAttribute("aria-busy");

@@ -7,3 +7,5 @@ __pycache__/
 .playwright-mcp/
 # сырые ответы трекера из scripts/recon.py
 tests/fixtures/
+# демо-видео с реальными данными трекера
+videos/
