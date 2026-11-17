@@ -169,12 +169,27 @@ def pin_offer(db: Session, so_id: int, pinned: bool) -> Campaign:
     return so.stream.campaign
 
 
+def _ensure_unchanged_in_keitaro(stream: Stream) -> None:
+    """PUT заменяет весь список офферов, поэтому Push не должен затереть правки, сделанные в Keitaro после Fetch."""
+    ensure_ours(keitaro.get(f"/campaigns/{stream.campaign_id}")["name"])  # имя в БД могло устареть с последнего Fetch
+    ks = next((s for s in keitaro.get(f"/campaigns/{stream.campaign_id}/streams") if s["id"] == stream.id), None)
+    if ks is None:
+        raise HTTPException(409, "Поток удалён в Keitaro: нажмите Fetch streams")
+    kt_offers = ks.get("offers") or []
+    disabled = [o["offer_id"] for o in kt_offers if o.get("state", ACTIVE) != ACTIVE]
+    if disabled:  # Push отправляет все офферы активными и включил бы их обратно
+        raise HTTPException(409, f"В Keitaro в потоке выключены офферы {disabled}: редактор их не поддерживает")
+    published = {o.offer_id: o.pub_share for o in stream.offers if o.pub_state == ACTIVE}
+    if {o["offer_id"]: o["share"] for o in kt_offers} != published:
+        raise HTTPException(409, "Поток изменён в Keitaro после Fetch: нажмите Fetch streams и повторите правки")
+
+
 def push(db: Session, stream_id: int) -> Campaign:
     stream = _offer_stream(db, stream_id)
-    ensure_ours(stream.campaign.name)
     active = [o for o in stream.offers if o.state == ACTIVE]
     if active and sum(o.share for o in active) != 100:
         raise HTTPException(422, "Сумма долей должна быть 100%: снимите закрепление с одного из офферов")
+    _ensure_unchanged_in_keitaro(stream)
     # PUT с offers заменяет весь список офферов потока (проверено на реальном трекере), остальные поля не трогает
     keitaro.put(
         f"/streams/{stream.id}",

@@ -1,6 +1,7 @@
 import json
 from types import SimpleNamespace as O
 
+import httpx
 import respx
 
 from app import editor, keitaro
@@ -43,9 +44,21 @@ def kt_streams(offers):
 
 
 def mock_keitaro(offers, name="test_Zaitsev_c1"):
-    respx.get(f"{BASE}campaigns/{CID}").respond(json={"id": CID, "name": name, "alias": "abc"})
-    respx.get(f"{BASE}campaigns/{CID}/streams").respond(json=kt_streams(offers))
+    """Keitaro с состоянием, как настоящий: PUT меняет офферы потока, GET отдаёт текущие. Правка kt — правка в админке."""
+    kt = {"name": name, "offers": offers}
+
+    def put(request):
+        kt["offers"] = json.loads(request.content)["offers"]
+        return httpx.Response(200, json={})
+
+    respx.get(f"{BASE}campaigns/{CID}").mock(
+        side_effect=lambda _: httpx.Response(200, json={"id": CID, "name": kt["name"], "alias": "abc"})
+    )
+    respx.get(f"{BASE}campaigns/{CID}/streams").mock(
+        side_effect=lambda _: httpx.Response(200, json=kt_streams(kt["offers"]))
+    )
     respx.get(f"{BASE}offers").respond(json=OFFERS)
+    return kt, respx.put(f"{BASE}streams/{SID}").mock(side_effect=put)
 
 
 def offers_of(campaign_json):
@@ -61,8 +74,7 @@ def so_id(campaign_json, offer_id):
 def test_video_scenario(client):
     """Сценарий из видео: fetch → add → cancel → add+push → remove+push → bring back → pin."""
     three = [{"offer_id": i, "share": s, "state": "active"} for i, s in ((1, 33), (2, 33), (3, 34))]
-    mock_keitaro(three)
-    put = respx.put(f"{BASE}streams/{SID}").respond(json={})
+    _, put = mock_keitaro(three)
 
     c = client.post(f"/api/campaigns/{CID}/fetch").json()
     google = c["streams"][0]
@@ -104,10 +116,10 @@ def test_video_scenario(client):
 
 @respx.mock
 def test_fetch_marks_offers_missing_in_keitaro_as_removed(client):
-    mock_keitaro([{"offer_id": i, "share": s, "state": "active"} for i, s in ((1, 50), (2, 50))])
+    kt, _ = mock_keitaro([{"offer_id": i, "share": s, "state": "active"} for i, s in ((1, 50), (2, 50))])
     client.post(f"/api/campaigns/{CID}/fetch")
 
-    respx.get(f"{BASE}campaigns/{CID}/streams").respond(json=kt_streams([{"offer_id": 1, "share": 100}]))
+    kt["offers"] = [{"offer_id": 1, "share": 100}]
     c = client.post(f"/api/campaigns/{CID}/fetch").json()
 
     stream, offers = offers_of(c)
@@ -118,8 +130,7 @@ def test_fetch_marks_offers_missing_in_keitaro_as_removed(client):
 
 @respx.mock
 def test_push_refused_for_foreign_campaign_and_bad_total(client):
-    mock_keitaro([{"offer_id": 1, "share": 100}], name="test_ivanov_campaign1")
-    put = respx.put(f"{BASE}streams/{SID}").respond(json={})
+    _, put = mock_keitaro([{"offer_id": 1, "share": 100}], name="test_ivanov_campaign1")
     c = client.post(f"/api/campaigns/{CID}/fetch").json()
     assert c["editable"] is False
     assert client.post(f"/api/streams/{SID}/push").status_code == 403
@@ -128,8 +139,7 @@ def test_push_refused_for_foreign_campaign_and_bad_total(client):
 
 @respx.mock
 def test_push_refused_when_pins_break_total(client):
-    mock_keitaro([{"offer_id": i, "share": s} for i, s in ((1, 60), (2, 30), (3, 10))])
-    put = respx.put(f"{BASE}streams/{SID}").respond(json={})
+    _, put = mock_keitaro([{"offer_id": i, "share": s} for i, s in ((1, 60), (2, 30), (3, 10))])
     c = client.post(f"/api/campaigns/{CID}/fetch").json()
     client.post(f"/api/stream_offers/{so_id(c, 1)}/pin", json={"pinned": True})
     client.post(f"/api/stream_offers/{so_id(c, 2)}/pin", json={"pinned": True})
@@ -139,6 +149,31 @@ def test_push_refused_when_pins_break_total(client):
     r = client.post(f"/api/streams/{SID}/push")
     assert r.status_code == 422 and "100" in r.json()["detail"]
     assert not put.called
+
+
+@respx.mock
+def test_push_refused_when_keitaro_changed_after_fetch(client):
+    kt, put = mock_keitaro([{"offer_id": 1, "share": 100, "state": "active"}])
+    client.post(f"/api/campaigns/{CID}/fetch")
+    client.post(f"/api/streams/{SID}/offers", json={"offer_id": 2})  # черновик 50/50
+
+    # в админке добавили оффер 5: Push затёр бы его
+    kt["offers"] = [{"offer_id": 1, "share": 50, "state": "active"}, {"offer_id": 5, "share": 50, "state": "active"}]
+    r = client.post(f"/api/streams/{SID}/push")
+    assert r.status_code == 409 and "Fetch" in r.json()["detail"]
+
+    # в админке выключили оффер 1: Push включил бы его обратно
+    kt["offers"] = [{"offer_id": 1, "share": 100, "state": "disabled"}]
+    r = client.post(f"/api/streams/{SID}/push")
+    assert r.status_code == 409 and "[1]" in r.json()["detail"]
+
+    # кампанию переименовали без префикса: имя в нашей БД устарело, проверяем по Keitaro
+    kt["offers"], kt["name"] = [{"offer_id": 1, "share": 100, "state": "active"}], "Prod campaign"
+    assert client.post(f"/api/streams/{SID}/push").status_code == 403
+    assert not put.called
+
+    kt["name"] = "test_Zaitsev_c1"  # Keitaro снова совпадает с опубликованным: Push проходит
+    assert client.post(f"/api/streams/{SID}/push").status_code == 200 and put.call_count == 1
 
 
 def test_cross_site_post_rejected(client):

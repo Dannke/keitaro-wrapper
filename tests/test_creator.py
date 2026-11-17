@@ -20,9 +20,18 @@ def test_full_name_adds_prefix_once():
 
 def test_parse_geo():
     assert services.parse_geo("au, mx,AU") == ["AU", "MX"]
-    for bad in ("", "AUS", "A1", ",,"):
+    assert services.parse_geo("gb,xk") == ["GB", "XK"]
+    for bad in ("", "AUS", "A1", ",,", "XX", "AU,ZZ"):  # формат верный, но таких стран нет: фильтр не сработал бы
         with pytest.raises(HTTPException):
             services.parse_geo(bad)
+    with pytest.raises(HTTPException) as e:
+        services.parse_geo("UK")
+    assert "GB" in e.value.detail
+
+
+def test_country_list_is_iso_3166():
+    assert len(services.COUNTRIES) == 250  # 249 кодов ISO 3166-1 alpha-2 и XK
+    assert all(len(c) == 2 and c.isupper() for c in services.COUNTRIES)
 
 
 def test_ensure_ours():
@@ -55,6 +64,7 @@ def test_create_campaign_end_to_end(client, db):
 
     assert r.status_code == 201, r.text
     assert r.json()["name"] == "test_Zaitsev_campaign1"
+    assert r.json()["offer"] == {"id": 25327, "name": "Mixflow AU"}  # UI показывает, какой оффер ушёл в поток
     sent = json.loads(camp.calls.last.request.content)
     assert (sent["domain_id"], sent["group_id"], sent["traffic_source_id"]) == (1, "2", 3)  # из conftest
     assert len(sent["alias"]) == 8

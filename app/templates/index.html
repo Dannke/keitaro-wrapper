@@ -53,6 +53,9 @@
 
 <script>
 const $ = (id) => document.getElementById(id);
+// parseInt ниже берёт id из начала метки. Имя оставляем как есть, только если его ведущее число и есть id:
+// у оффера 12 «123 Mixflow» простой startsWith дал бы 123
+const label = (o) => (/^\d+/.exec(o.name)?.[0] === String(o.id) ? o.name : `${o.id} ${o.name}`);
 $("open").addEventListener("submit", (e) => { e.preventDefault(); location.href = "/campaigns/" + $("open-id").value; });
 let timer;
 $("offer").addEventListener("input", () => {
@@ -60,8 +63,6 @@ $("offer").addEventListener("input", () => {
   timer = setTimeout(async () => {
     const r = await fetch("/api/offers?q=" + encodeURIComponent($("offer").value));
     if (!r.ok) return;
-    // имена офферов в Keitaro обычно уже начинаются с id; parseInt ниже берёт id из начала строки
-    const label = (o) => (o.name.startsWith(String(o.id)) ? o.name : `${o.id} ${o.name}`);
     $("offers").replaceChildren(...(await r.json()).map((o) => new Option(label(o), label(o))));
   }, 250);
 });
@@ -80,7 +81,8 @@ $("form").addEventListener("submit", async (e) => {
     });
     const data = await r.json();
     if (!r.ok) throw new Error(typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail));
-    out.className = "ok"; out.textContent = `Создана кампания ${data.name} (id ${data.id}, alias ${data.alias})`;
+    out.className = "ok";
+    out.textContent = `Создана кампания ${data.name} (id ${data.id}, alias ${data.alias}), оффер ${label(data.offer)}`;
     setTimeout(() => location.reload(), 1500);
   } catch (err) {
     out.className = "err"; out.textContent = "Ошибка: " + err.message;

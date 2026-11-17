@@ -55,7 +55,8 @@ ruff check . && ruff format .
   HTTP-код лежит в `app/keitaro.py`, роутеры тонкие. Каждая операция редактора возвращает кампанию целиком (`serialize`).
 - `rebalance`: доли целые; закреплённые (pinned) не трогаем; `100 − Σ pinned` делим поровну между активными
   незакреплёнными, остаток раздаём по 1% последним (3 оффера: 33/33/34); у `removed` доля 0. Pin сам доли не пересчитывает.
-- `PUT /streams/{id}` с `offers` заменяет весь список, поэтому Push отправляет все активные офферы потока.
+- `PUT /streams/{id}` с `offers` заменяет весь список, поэтому Push отправляет все активные офферы потока,
+  а перед этим сверяет поток с Keitaro (`editor._ensure_unchanged_in_keitaro`). Не убирать: иначе Push затрёт правки из админки.
 - Middleware `same_origin_only` в `app/main.py` отклоняет POST с чужим Origin, а `TrustedHostMiddleware`
   (`settings.allowed_hosts`) закрывает обход через DNS rebinding. Не убирать: авторизации нет.
   Тестовый клиент ходит на `http://localhost`.

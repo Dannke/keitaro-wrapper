@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app import editor, services
 from app.db import get_db
+from app.models import Offer
 
 router = APIRouter(prefix="/api")
 
@@ -22,7 +23,8 @@ def offers(q: str = ""):
 @router.post("/campaigns", status_code=201)
 def create_campaign(body: CampaignIn, db: Session = Depends(get_db)):
     c = services.create_campaign(db, body.name, body.geo, body.offer_id)
-    return {"id": c.id, "name": c.name, "alias": c.alias, "geo": c.geo}
+    offer = db.get_one(Offer, body.offer_id)  # UI показывает, какой оффер реально ушёл в поток
+    return {"id": c.id, "name": c.name, "alias": c.alias, "geo": c.geo, "offer": {"id": offer.id, "name": offer.name}}
 
 
 # Редактор: каждая операция возвращает кампанию целиком, UI просто перерисовывается.

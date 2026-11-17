@@ -98,10 +98,11 @@ function renderStream(s) {
 }
 
 let timer;
+// parseInt в Add offer берёт id из начала метки: имя без префикса, только если его ведущее число и есть id
+const label = (o) => (/^\d+/.exec(o.name)?.[0] === String(o.id) ? o.name : `${o.id} ${o.name}`);
 function searchOffers(q) {
   clearTimeout(timer);
   timer = setTimeout(() => $.getJSON("/api/offers", {q}, (list) => {
-    const label = (o) => (o.name.startsWith(String(o.id)) ? o.name : `${o.id} ${o.name}`);
     $("#offer-list").empty().append(list.map((o) => new Option(label(o), label(o))));
   }), 250);
 }
