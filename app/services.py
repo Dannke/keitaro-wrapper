@@ -75,6 +75,17 @@ def search_offers(q: str = "", limit: int = 20) -> list[dict]:
 
 def create_campaign(db: Session, name: str, geo: str, offer_id: int) -> Campaign:
     name, countries = full_name(name), parse_geo(geo)
+    missing = [
+        env
+        for env, value in (
+            ("DEFAULT_DOMAIN_ID", settings.default_domain_id),
+            ("DEFAULT_GROUP_ID", settings.default_group_id),
+            ("DEFAULT_SOURCE_ID", settings.default_source_id),
+        )
+        if value is None
+    ]
+    if missing:
+        raise HTTPException(500, f"Не заданы {', '.join(missing)} в .env: id выводит python scripts/recon.py")
     offer = next((o for o in keitaro.get("/offers") if o["id"] == offer_id), None)
     if offer is None:
         raise HTTPException(422, f"Оффер {offer_id} не найден в Keitaro")

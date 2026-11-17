@@ -1,12 +1,24 @@
-import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+import os
 
-from app import models  # noqa: F401
-from app.db import Base, get_db
-from app.main import app
+# Тесты не зависят от .env разработчика: переменные окружения важнее .env, выставляем их до импорта app
+os.environ.update(
+    KEITARO_URL="https://keitaro.test",
+    KEITARO_API_KEY="test-key",
+    NAME_PREFIX="test_Zaitsev_",
+    DEFAULT_DOMAIN_ID="1",
+    DEFAULT_GROUP_ID="2",
+    DEFAULT_SOURCE_ID="3",
+)
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy.orm import sessionmaker  # noqa: E402
+from sqlalchemy.pool import StaticPool  # noqa: E402
+
+from app import models  # noqa: E402,F401
+from app.db import Base, get_db  # noqa: E402
+from app.main import app  # noqa: E402
 
 
 @pytest.fixture

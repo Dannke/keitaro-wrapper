@@ -56,11 +56,25 @@ def test_create_campaign_end_to_end(client, db):
     assert r.status_code == 201, r.text
     assert r.json()["name"] == "test_Zaitsev_campaign1"
     sent = json.loads(camp.calls.last.request.content)
-    assert (sent["domain_id"], sent["group_id"], sent["traffic_source_id"]) == (1, "2", 3)
+    assert (sent["domain_id"], sent["group_id"], sent["traffic_source_id"]) == (1, "2", 3)  # из conftest
     assert len(sent["alias"]) == 8
     assert streams.call_count == 2
     assert db.get(Campaign, 500).geo == "AU"
     assert db.get(Offer, 25327).name == "Mixflow AU"
+
+
+@respx.mock
+def test_missing_defaults_rejected_before_any_request(client, monkeypatch):
+    monkeypatch.setattr(services.settings, "default_group_id", None)
+    r = client.post("/api/campaigns", json={"name": "x", "geo": "AU", "offer_id": 25327})
+    assert r.status_code == 500 and "DEFAULT_GROUP_ID" in r.json()["detail"]  # respx не замокан: запросов не было
+
+
+def test_missing_keitaro_url_gives_clear_error(monkeypatch):
+    monkeypatch.setattr(keitaro.settings, "keitaro_url", "")
+    with pytest.raises(HTTPException) as e:
+        keitaro.get("/offers")
+    assert e.value.status_code == 500 and "KEITARO_URL" in e.value.detail
 
 
 def test_upsert_offer_updates_name(db):

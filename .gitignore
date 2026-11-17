@@ -5,5 +5,5 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .playwright-mcp/
-tests/fixtures/campaigns.json
-tests/fixtures/offers.json
+# сырые ответы трекера из scripts/recon.py
+tests/fixtures/

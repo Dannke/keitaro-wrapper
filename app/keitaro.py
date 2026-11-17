@@ -1,4 +1,4 @@
-"""Тонкий клиент Keitaro Admin API (https://keitaro.example.com/admin/?object=adminApi)."""
+"""Тонкий клиент Keitaro Admin API (Swagger: <KEITARO_URL>/admin/?object=adminApi)."""
 
 import httpx
 from fastapi import HTTPException
@@ -14,6 +14,8 @@ client = httpx.Client(
 
 def request(method: str, path: str, **kwargs):
     """Ошибки сети и ответы 4xx/5xx от Keitaro превращаются в 502 с текстом Keitaro, чтобы UI показал причину."""
+    if not (settings.keitaro_url and settings.keitaro_api_key):
+        raise HTTPException(500, "Не заданы KEITARO_URL и KEITARO_API_KEY в .env (см. README, «Подключение к Keitaro»)")
     try:
         r = client.request(method, path, **kwargs)
     except httpx.HTTPError as e:

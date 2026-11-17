@@ -175,7 +175,7 @@ def push(db: Session, stream_id: int) -> Campaign:
     active = [o for o in stream.offers if o.state == ACTIVE]
     if active and sum(o.share for o in active) != 100:
         raise HTTPException(422, "Сумма долей должна быть 100%: снимите закрепление с одного из офферов")
-    # PUT с offers заменяет весь список офферов потока (проверено на keitaro.example.com), остальные поля не трогает
+    # PUT с offers заменяет весь список офферов потока (проверено на реальном трекере), остальные поля не трогает
     keitaro.put(
         f"/streams/{stream.id}",
         {"offers": [{"offer_id": o.offer_id, "share": o.share, "state": ACTIVE} for o in active]},

@@ -16,7 +16,7 @@
 
 ## Быстрый старт
 
-Нужен Python 3.11+ и API-ключ Keitaro (админка → Профиль → API ключи).
+Нужны Python 3.11+, адрес трекера Keitaro и API-ключ к нему.
 
 ```bash
 python -m venv .venv
@@ -29,7 +29,7 @@ pip install -r requirements.txt
 cp .env.example .env        # Windows: copy .env.example .env
 ```
 
-Впишите ключ в `.env` (`KEITARO_API_KEY=...`), затем:
+Заполните `.env` по разделу [«Подключение к Keitaro»](#подключение-к-keitaro), затем:
 
 ```bash
 alembic upgrade head        # создаёт app.db (SQLite) со всеми таблицами
@@ -38,20 +38,55 @@ uvicorn app.main:app --reload
 
 Откройте http://localhost:8000.
 
+## Подключение к Keitaro
+
+Адрес трекера и id в репозиторий не записаны, их нужно указать в `.env`.
+
+1. **Адрес трекера.** Впишите адрес, на котором открывается админка, без `/admin`:
+   ```
+   KEITARO_URL=https://keitaro.example.com
+   ```
+2. **API-ключ.** В админке Keitaro откройте Профиль → вкладку «API ключи». Создайте ключ или скопируйте существующий:
+   ```
+   KEITARO_API_KEY=...
+   ```
+   Документация API (Swagger) открывается там же по ссылке «Документация» или по адресу `<KEITARO_URL>/admin/?object=adminApi`.
+3. **Домен, группа и источник новой кампании.** Запустите разведку: она делает только GET-запросы и ничего в трекере не меняет.
+   ```bash
+   python scripts/recon.py
+   ```
+   Скрипт выведет списки `id` и названий:
+   ```
+   DEFAULT_DOMAIN_ID — выберите id:
+       1234  my-domain.com
+   DEFAULT_GROUP_ID — выберите id:
+       5678  FORTESTS
+   DEFAULT_SOURCE_ID — выберите id:
+        910  FORTESTS
+   ```
+   Перенесите выбранные id в `.env`:
+   ```
+   DEFAULT_DOMAIN_ID=1234
+   DEFAULT_GROUP_ID=5678
+   DEFAULT_SOURCE_ID=910
+   ```
+   Полные ответы API скрипт сохраняет в `tests/fixtures/`. Эта папка в `.gitignore`: там данные трекера.
+4. **Префикс** `NAME_PREFIX` (по умолчанию `test_Zaitsev_`) добавляется к именам новых кампаний. Push разрешён только для кампаний с этим префиксом.
+
+Если чего-то не хватает, приложение скажет об этом прямо. Без адреса или ключа любой запрос к Keitaro вернёт «Не заданы KEITARO_URL и KEITARO_API_KEY». Без id создание кампании вернёт «Не заданы DEFAULT_…».
+
 ## Настройки (`.env`)
 
 | Переменная | По умолчанию | Что это |
 |---|---|---|
-| `KEITARO_URL` | `https://keitaro.example.com` | адрес трекера |
+| `KEITARO_URL` | — | адрес трекера без `/admin`, **обязателен** |
 | `KEITARO_API_KEY` | — | ключ Admin API, **обязателен** |
-| `NAME_PREFIX` | `test_Zaitsev_` | префикс имён кампаний; менять разрешено только кампании с ним |
+| `DEFAULT_DOMAIN_ID` | — | id домена новой кампании, нужен для создания |
+| `DEFAULT_GROUP_ID` | — | id группы кампаний, нужен для создания |
+| `DEFAULT_SOURCE_ID` | — | id источника трафика, нужен для создания |
+| `NAME_PREFIX` | `test_Zaitsev_` | префикс имён кампаний |
 | `DATABASE_URL` | `sqlite:///./app.db` | любая строка подключения SQLAlchemy |
-| `DEFAULT_DOMAIN_ID` | `1` | домен новой кампании (`example.com`) |
-| `DEFAULT_GROUP_ID` | `2` | группа (`FORTESTS`) |
-| `DEFAULT_SOURCE_ID` | `3` | источник трафика (`FORTESTS`) |
-| `ALLOWED_HOSTS` | `["localhost","127.0.0.1"]` | на какие `Host` отвечает приложение (JSON-список); защита от DNS rebinding |
-
-Id домена, группы и источника на другом трекере можно узнать командой `python scripts/recon.py`. Скрипт делает только GET-запросы и сохраняет справочники в `tests/fixtures/`.
+| `ALLOWED_HOSTS` | `["localhost","127.0.0.1"]` | на какие `Host` отвечает приложение (JSON-список), защита от DNS rebinding |
 
 ## Миграции
 
